@@ -35,7 +35,7 @@ Adafruit_MLX90614 mlx = Adafruit_MLX90614();
 enum SystemState { STANDBY, ACTIVE };
 SystemState currentState = STANDBY;
 unsigned long activeStartTime = 0;
-const unsigned long DIAGNOSTIC_DURATION = 90000; // 90 seconds
+const unsigned long DIAGNOSTIC_DURATION = 60000; // 60 seconds
 
 // --- Acoustic Settings ---
 unsigned long lastAcousticTrigger = 0;
