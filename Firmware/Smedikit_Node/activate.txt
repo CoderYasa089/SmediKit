@@ -1,0 +1,2 @@
+mosquitto_sub -h localhost -t smedikit/telemetry
+cd "C:\Program Files\mosquitto"	
