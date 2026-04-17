@@ -37,9 +37,10 @@ SystemState currentState = STANDBY;
 unsigned long activeStartTime = 0;
 const unsigned long DIAGNOSTIC_DURATION = 90000; // 90 seconds
 
-// --- Acoustic Debounce (Echo Protection) ---
+// --- Acoustic Settings ---
 unsigned long lastAcousticTrigger = 0;
 const unsigned long ACOUSTIC_COOLDOWN = 2000; // 2 seconds
+const float ACOUSTIC_THRESHOLD = 3000.0; // The new sensitivity baseline
 
 // --- SpO2 & BPM Variables ---
 const byte RATE_SIZE = 4; 
@@ -52,9 +53,11 @@ int spo2 = 0;
 
 void setup() {
   Serial.begin(115200);
+  delay(2000); // Give the USB port 2 seconds to wake up
+  Serial.println("\n--- SmediKit V4 Boot Sequence Started ---");
   Wire.begin(I2C_SDA, I2C_SCL);
 
-  // Initialize OLED
+  Serial.println("Initializing OLED...");
   if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
     Serial.println(F("SSD1306 allocation failed"));
     for(;;);
@@ -62,31 +65,30 @@ void setup() {
   display.clearDisplay();
   display.setTextColor(WHITE);
   
-  // Initialize MLX90614 (Wrist Temp)
+  Serial.println("Initializing MLX90614...");
   if (!mlx.begin()) {
     Serial.println("Error connecting to MLX sensor.");
     for(;;);
   }
 
-  // Initialize MAX30102 (BPM & SpO2)
+  Serial.println("Initializing MAX30102...");
   if (!particleSensor.begin(Wire, I2C_SPEED_FAST)) {
     Serial.println("MAX30102 was not found.");
     for(;;);
   }
-  // Setup to sense both Red and IR for SpO2
+  
   byte ledBrightness = 60; 
   byte sampleAverage = 4; 
-  byte ledMode = 2; // Option: 1 = Red only, 2 = Red + IR, 3 = Red + IR + Green
+  byte ledMode = 2; 
   int sampleRate = 100; 
   int pulseWidth = 411; 
   int adcRange = 4096; 
   particleSensor.setup(ledBrightness, sampleAverage, ledMode, sampleRate, pulseWidth, adcRange);
 
-  // Initialize Network
   setup_wifi();
   client.setServer(mqtt_server, 1883);
 
-  // Initialize I2S Microphone
+  Serial.println("Initializing I2S Microphone...");
   i2s_config_t i2s_config = {
     .mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_RX),
     .sample_rate = 16000,
@@ -109,22 +111,32 @@ void setup() {
   i2s_driver_install(I2S_NUM_0, &i2s_config, 0, NULL);
   i2s_set_pin(I2S_NUM_0, &pin_config);
 
+  Serial.println("Hardware Init Complete. Entering STANDBY.");
   drawStandbyScreen();
 }
 
 void setup_wifi() {
+  Serial.print("Connecting to WiFi: ");
+  Serial.println(ssid);
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
+    Serial.print(".");
     yield();
   }
+  Serial.println("\nWiFi Connected!");
 }
 
 void reconnect() {
   while (!client.connected()) {
+    Serial.print("Attempting MQTT connection to: ");
+    Serial.println(mqtt_server);
     if (client.connect("SmediKit_EdgeNode")) {
-      // Connected
+      Serial.println("MQTT Connected!");
     } else {
+      Serial.print("Failed, rc=");
+      Serial.print(client.state());
+      Serial.println(" - Retrying in 5 seconds...");
       delay(5000);
       yield();
     }
@@ -165,8 +177,13 @@ void loop() {
     int samples_read = bytes_read / sizeof(int32_t);
     float rms = calculateRMS(i2s_data, samples_read);
 
+    // TEMPORARY CALIBRATION DEBUGGER:
+    // This will spam the Serial Monitor with the live background noise level
+    //Serial.print("Live Mic RMS: ");
+    //Serial.println(rms);
+
     // WAKE TRIGGER WITH DEBOUNCE
-    if (rms > 20000.0 && (millis() - lastAcousticTrigger > ACOUSTIC_COOLDOWN)) { 
+    if (rms > ACOUSTIC_THRESHOLD && (millis() - lastAcousticTrigger > ACOUSTIC_COOLDOWN)) { 
       lastAcousticTrigger = millis(); // Lock out the mic for 2 seconds
       currentState = ACTIVE;
       activeStartTime = millis();
@@ -206,7 +223,7 @@ void loop() {
       int samples_read = bytes_read / sizeof(int32_t);
       float rms = calculateRMS(i2s_data, samples_read);
       
-      if (rms > 20000.0 && (millis() - lastAcousticTrigger > ACOUSTIC_COOLDOWN)) { 
+      if (rms > ACOUSTIC_THRESHOLD && (millis() - lastAcousticTrigger > ACOUSTIC_COOLDOWN)) { 
         lastAcousticTrigger = millis(); // Lock out the mic for 2 seconds
         currentState = STANDBY;
         client.publish(mqtt_topic, "{\"bpm\":0, \"spo2\":0, \"temp\":0.00}"); // Reset Dashboard
