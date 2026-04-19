@@ -38,7 +38,7 @@ ui.colors(primary='#0f172a', secondary='#1e293b', accent='#38bdf8')
 with ui.header().classes('items-center justify-between p-5 bg-primary border-b border-gray-800'):
     with ui.column().classes('gap-1'):
         ui.label('SmediKit: AI-Powered Telemedicine & Remote Vitals Monitoring Hub').classes('text-2xl font-bold text-white tracking-wide')
-        ui.label('Architecture: LOCAL FOG NODE | Simulated Federated Learning | No Cloud Data Transmission').classes('text-gray-300 font-mono text-lg font-semibold')
+        ui.label('Architecture: LOCAL FOG NODE | No Cloud Data Transmission').classes('text-gray-300 font-mono text-lg font-semibold')
 
 # System Status Bar
 with ui.row().classes('w-full justify-between items-center px-10 mt-6'):

@@ -9,9 +9,9 @@
 #include <driver/i2s.h>
 
 // --- Network & MQTT Settings ---
-const char* ssid = "Yasa";
-const char* password = "yasa@777";
-const char* mqtt_server = "192.168.0.103"; // Fog Node IP
+const char* ssid = "SSID"; //WIFI SSID
+const char* password = "PASSWORD"; //WIFI Password
+const char* mqtt_server = "IPv4"; // Fog Node IP(cmd->ipconfig)
 const char* mqtt_topic = "smedikit/vitals";
 
 WiFiClient espClient;
@@ -177,11 +177,6 @@ void loop() {
     int samples_read = bytes_read / sizeof(int32_t);
     float rms = calculateRMS(i2s_data, samples_read);
 
-    // TEMPORARY CALIBRATION DEBUGGER:
-    // This will spam the Serial Monitor with the live background noise level
-    //Serial.print("Live Mic RMS: ");
-    //Serial.println(rms);
-
     // WAKE TRIGGER WITH DEBOUNCE
     if (rms > ACOUSTIC_THRESHOLD && (millis() - lastAcousticTrigger > ACOUSTIC_COOLDOWN)) { 
       lastAcousticTrigger = millis(); // Lock out the mic for 2 seconds
@@ -284,18 +279,33 @@ void loop() {
       }
     }
 
-    // 5. Update OLED (500ms)
+    // 5. Update OLED (500ms) - REDESIGNED FOR LARGE FONT
     static unsigned long lastOLEDUpdate = 0;
     if (millis() - lastOLEDUpdate > 500) {
       lastOLEDUpdate = millis();
       display.clearDisplay();
+      
+      // Top Status Bar: Time & Stop Instruction (Size 1)
+      display.setTextSize(1);
       display.setCursor(0, 0);
-      display.print("Time Left: ");
+      display.print("Time: ");
       display.print((DIAGNOSTIC_DURATION - timeElapsed) / 1000);
-      display.println("s");
-      display.print("BPM: "); display.println(beatAvg);
-      display.print("SpO2: "); display.print(spo2); display.println("%");
-      display.print("Temp: "); display.print(objTemp); display.println("C");
+      display.print("s | Say STOP");
+
+      // Vitals: Large Font (Size 2)
+      display.setTextSize(2);
+      
+      display.setCursor(0, 16);
+      display.print("BPM:"); display.println(beatAvg);
+      
+      display.setCursor(0, 32);
+      display.print("SpO2 :"); display.print(spo2); display.println("%");
+      
+      display.setCursor(0, 48);
+      display.print("Tmp:"); display.print(objTemp, 1); // 1 decimal place saves space
+      display.write(247); 
+      display.println("C");
+      
       display.display();
     }
 
